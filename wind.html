@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>상층과 지상의 바람 — 지균풍 · 경도풍 · 지상풍</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Noto+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#171717; --body:#4d4d4d; --mute:#8f8f8f; --faint:#a1a1a1;
+    --hairline:#ebebeb; --hairline-soft:#f2f2f2; --canvas:#fafafa; --elev:#ffffff;
+    --link:#0070f3; --link-soft:#d3e5ff; --error:#ee0000;
+    --warning-deep:#ab570a; --warning-soft:#ffefcf;
+    --violet:#7928ca; --violet-soft:#d8ccf1; --magenta:#eb367f;
+    --sans: Geist, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", Arial, sans-serif;
+    --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, "Noto Sans KR", monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--canvas);overflow:hidden;font-family:var(--sans);color:var(--ink)}
+  #stage{
+    position:absolute;left:50%;top:50%;width:1920px;height:1080px;
+    transform-origin:center center;background:var(--canvas);
+  }
+  .scene{position:absolute;inset:0;display:none}
+  .scene.on{display:block}
+
+  /* 위: 제목 */
+  .head{position:absolute;left:96px;right:96px;top:52px}
+  .eyebrow{font-family:var(--mono);font-size:24px;font-weight:500;letter-spacing:.06em;color:var(--mute)}
+  h1{margin:10px 0 0;font-size:64px;line-height:72px;font-weight:600;letter-spacing:-2px;color:var(--ink)}
+
+  /* 가운데: 그림 */
+  .figure{position:absolute;left:96px;right:96px;top:208px;height:640px;display:flex;gap:32px}
+  .fig{flex:1;background:var(--elev);border:1px solid var(--hairline);border-radius:16px;overflow:hidden}
+  .fig svg{display:block;width:100%;height:100%}
+  .panel{background:var(--elev);border:1px solid var(--hairline);border-radius:16px;padding:32px;display:flex;flex-direction:column;gap:20px}
+  .panel .lbl{font-size:28px;line-height:36px;color:var(--body);font-weight:500}
+  .panel .big{font-family:var(--mono);font-size:40px;line-height:48px;font-weight:500;color:var(--ink)}
+  .panel .row{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  .panel hr{border:0;border-top:1px solid var(--hairline);margin:4px 0;width:100%}
+  .read{font-size:30px;line-height:40px;color:var(--ink)}
+  .read b{font-family:var(--mono);font-weight:500}
+  .note{font-size:26px;line-height:34px;color:var(--body)}
+
+  /* 아래: 화면 문장 */
+  .caption{position:absolute;left:96px;width:1420px;top:878px;font-size:38px;line-height:54px;font-weight:500;color:var(--ink);letter-spacing:-.5px}
+  .caption em{font-style:normal;color:var(--link);font-weight:600}
+
+  /* 단추 (앱 컨트롤 = 6px 사각) */
+  .btn{height:72px;padding:0 28px;font:500 30px/1 var(--sans);border-radius:6px;border:1px solid var(--hairline);
+       background:var(--elev);color:var(--ink);cursor:pointer;touch-action:manipulation}
+  .btn.primary{background:var(--ink);border-color:var(--ink);color:#fff}
+  .btn:active{transform:translateY(1px)}
+  /* 선택 단추 (pill) */
+  .seg{display:flex;gap:10px;flex-wrap:wrap}
+  .seg .btn{border-radius:64px;padding:0 30px}
+  .seg .btn.on{background:var(--ink);border-color:var(--ink);color:#fff}
+  .force{display:flex;align-items:center;gap:14px;border-radius:6px;padding:0 24px}
+  .force .dot{width:22px;height:22px;border-radius:50%}
+  .force.on{border-width:3px}
+
+  input[type=range]{width:100%;height:56px;accent-color:var(--ink);cursor:pointer}
+  .ends{display:flex;justify-content:space-between;font-size:24px;color:var(--mute);margin-top:-8px}
+
+  .steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+  .steps li{font-size:27px;line-height:36px;color:var(--faint);display:flex;gap:12px}
+  .steps li span{font-family:var(--mono);font-weight:500}
+  .steps li.on{color:var(--ink);font-weight:500}
+  .steps li.done{color:var(--body)}
+
+  .bars{display:flex;flex-direction:column;gap:14px}
+  .bar{display:grid;grid-template-columns:230px 1fr;align-items:center;gap:14px;font-size:26px;color:var(--body)}
+  .bar i{display:block;height:30px;border-radius:6px;background:var(--hairline)}
+  .bar.cur{color:var(--ink);font-weight:600}
+  .bar.cur i{background:var(--ink)}
+
+  .s4p .btn{height:64px;font-size:28px;padding:0 22px}
+  .s4p .seg .btn{padding:0 26px}
+  .s4p .lbl{font-size:26px;line-height:32px}
+  .msg{font-size:30px;line-height:40px;font-weight:600;min-height:40px}
+  .msg.ok{color:var(--link)}
+  .msg.no{color:var(--error)}
+
+  /* 오른쪽 아래: 넘기기 */
+  .nav{position:absolute;right:96px;bottom:60px;display:flex;align-items:center;gap:18px}
+  .nav .page{font-family:var(--mono);font-size:32px;color:var(--body);min-width:110px;text-align:center}
+  .nav button{width:76px;height:76px;border-radius:9999px;border:1px solid var(--hairline);background:var(--elev);
+              font-size:34px;color:var(--ink);cursor:pointer}
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <!-- 장면 1 : 지균풍 -->
+  <section class="scene on" id="s1">
+    <div class="head">
+      <div class="eyebrow">장면 01 · 상층(약 1 km 이상) · 북반구</div>
+      <h1>지균풍 — 상층, 등압선이 직선일 때</h1>
+    </div>
+    <div class="figure">
+      <div class="fig"><svg id="svg1" viewBox="0 0 1136 640"></svg></div>
+      <div class="panel" style="width:560px">
+        <div class="row">
+          <button class="btn primary" id="s1play">▶ 재생</button>
+          <button class="btn" id="s1reset">↺ 처음부터</button>
+        </div>
+        <ol class="steps" id="s1steps">
+          <li><span>1</span>기압 경도력으로 공기가 움직이기 시작</li>
+          <li><span>2</span>전향력이 작용해 오른쪽으로 휘어짐</li>
+          <li><span>3</span>두 힘이 평형 → 등압선과 나란히</li>
+        </ol>
+        <hr>
+        <div class="row" style="justify-content:space-between"><span class="lbl">위도 θ</span><span class="big" id="s1latv">45°N</span></div>
+        <input type="range" id="s1lat" min="15" max="90" step="1" value="45">
+        <div class="ends"><span>15°N</span><span>90°N</span></div>
+        <div class="read">2Ω sinθ = <b id="s1f">1.03 × 10⁻⁴ s⁻¹</b></div>
+        <div class="read">지균풍 풍속 = 45°N의 <b id="s1r">1.00배</b></div>
+      </div>
+    </div>
+    <div class="caption">기압 경도력과 전향력이 평형을 이루면<br>바람은 등압선과 나란하게 분다 → <em>지균풍</em></div>
+  </section>
+
+  <!-- 장면 2 : 경도풍 -->
+  <section class="scene" id="s2">
+    <div class="head">
+      <div class="eyebrow">장면 02 · 상층(약 1 km 이상) · 북반구</div>
+      <h1>경도풍 — 상층, 등압선이 원형일 때</h1>
+    </div>
+    <div class="figure">
+      <div class="fig"><svg id="svg2" viewBox="0 0 1136 640"></svg></div>
+      <div class="panel" style="width:560px">
+        <div class="seg">
+          <button class="btn on" data-k="L">저기압</button>
+          <button class="btn" data-k="H">고기압</button>
+        </div>
+        <div class="row">
+          <button class="btn primary" id="s2play">▶ 재생</button>
+          <button class="btn" id="s2reset">↺ 처음부터</button>
+        </div>
+        <ol class="steps" id="s2steps">
+          <li><span>1</span><em id="s2st1" style="font-style:normal">기압 경도력으로 중심 쪽으로 출발</em></li>
+          <li><span>2</span>전향력이 작용해 오른쪽으로 휘어짐</li>
+          <li><span>3</span><em id="s2st3" style="font-style:normal">두 힘의 차이가 구심력 → 등압선 따라</em></li>
+        </ol>
+        <hr>
+        <div class="read" id="s2dir">북반구: <b>시계 반대 방향</b></div>
+        <div class="read" id="s2eq">기압 경도력 − 전향력 = <b style="color:var(--magenta)">구심력</b></div>
+      </div>
+    </div>
+    <div class="caption">기압 경도력과 전향력의 차이가 구심력이 되어<br>바람이 등압선을 따라 휘어 분다 → <em>경도풍</em></div>
+  </section>
+
+  <!-- 장면 3 : 같은 기압 경도력일 때 풍속 비교 -->
+  <section class="scene" id="sC">
+    <div class="head">
+      <div class="eyebrow">장면 03 · 상층(약 1 km 이상) · 북반구</div>
+      <h1>기압 경도력이 같을 때 — 상층 바람의 풍속 비교</h1>
+    </div>
+    <div class="figure">
+      <div class="fig"><svg id="svgC" viewBox="0 0 1336 640"></svg></div>
+      <div class="panel" style="width:360px">
+        <button class="btn primary" id="sCshow">바람 보기</button>
+        <hr>
+        <span class="lbl">전향력 · 풍속이 큰 순서</span>
+        <ol class="steps" id="sCv" style="visibility:hidden">
+          <li class="on"><span>1</span>고기압성 경도풍</li>
+          <li class="on"><span>2</span>지균풍</li>
+          <li class="on"><span>3</span>저기압성 경도풍</li>
+        </ol>
+        <hr>
+        <div class="note">전향력은 풍속에 비례한다</div>
+      </div>
+    </div>
+    <div class="caption">기압 경도력이 같으면 전향력이 클수록 풍속이 빠르다<br>→ <em>고기압성 경도풍 &gt; 지균풍 &gt; 저기압성 경도풍</em></div>
+  </section>
+
+  <!-- 장면 4 : 지상풍 -->
+  <section class="scene" id="s3">
+    <div class="head">
+      <div class="eyebrow">장면 04 · 지상(약 1 km 이하) · 북반구</div>
+      <h1>지상풍 — 지상, 마찰력이 작용할 때</h1>
+    </div>
+    <div class="figure">
+      <div class="fig"><svg id="svg3" viewBox="0 0 1136 640"></svg></div>
+      <div class="panel" style="width:560px">
+        <span class="lbl">마찰력 크기</span>
+        <input type="range" id="s3k" min="0" max="1" step="0.01" value="0.5">
+        <div class="ends"><span>0 (마찰 없음)</span><span>큼</span></div>
+        <hr>
+        <div class="row" style="justify-content:space-between"><span class="lbl">경각 α</span><span class="big" id="s3a">27°</span></div>
+        <div class="note">경각: 바람이 등압선과 이루는 각</div>
+        <hr>
+        <div class="note">기압 경도력 = 전향력 + 마찰력의 합력</div>
+      </div>
+    </div>
+    <div class="caption">마찰력이 더해지면 풍속과 전향력이 작아져<br>바람이 등압선을 가로질러 저기압 쪽으로 분다 → <em>지상풍</em></div>
+  </section>
+
+  <!-- 장면 5 : 골라 보기 + 정리 -->
+  <section class="scene" id="s4">
+    <div class="head">
+      <div class="eyebrow">장면 05 · 정리 · 북반구</div>
+      <h1>어떤 힘이 작용할까? — 골라 보기</h1>
+    </div>
+    <div class="figure">
+      <div class="panel s4p" style="width:640px;gap:12px">
+        <span class="lbl">① 높이</span>
+        <div class="seg" id="s4layer">
+          <button class="btn on" data-v="U">상층</button>
+          <button class="btn" data-v="D">지상</button>
+        </div>
+        <span class="lbl">② 등압선</span>
+        <div class="seg" id="s4shape">
+          <button class="btn on" data-v="S">직선</button>
+          <button class="btn" data-v="L">저기압</button>
+          <button class="btn" data-v="H">고기압</button>
+        </div>
+        <span class="lbl">③ 작용하는 힘을 모두 고르기</span>
+        <div class="row" id="s4forces" style="gap:10px">
+          <button class="btn force" data-v="pgf"><i class="dot" style="background:var(--link)"></i>기압 경도력</button>
+          <button class="btn force" data-v="cf"><i class="dot" style="background:var(--violet)"></i>전향력</button>
+          <button class="btn force" data-v="fr"><i class="dot" style="background:var(--warning-deep)"></i>마찰력</button>
+        </div>
+        <div class="row">
+          <button class="btn primary" id="s4check">확인</button>
+          <button class="btn" id="s4reveal" style="display:none">정답 보기</button>
+        </div>
+        <div class="msg" id="s4msg"></div>
+      </div>
+      <div class="fig"><svg id="svg4" viewBox="0 0 1056 640"></svg></div>
+    </div>
+    <div class="caption">상층: 마찰력 없음 → 등압선과 나란히 (<em>지균풍 · 경도풍</em>)<br>지상: 마찰력 더해짐 → 등압선을 가로질러 (<em>지상풍</em>)</div>
+  </section>
+
+  <div class="nav">
+    <button id="prev" aria-label="앞 장면">‹</button>
+    <span class="page" id="page">1 / 5</span>
+    <button id="next" aria-label="다음 장면">›</button>
+  </div>
+</div>
+
+<script>
+/* ---------- 색 (DESIGN.md) ---------- */
+const C = {
+  pgf:'#0070f3',   // 기압 경도력 (link)
+  cf:'#7928ca',    // 전향력 (violet)
+  fr:'#ab570a',    // 마찰력 (warning-deep)
+  cp:'#eb367f',    // 구심력 = 합력 (magenta)
+  wind:'#171717',  // 바람 (ink)
+  ghost:'#a1a1a1', // 비교선 (faint)
+  iso:'#8f8f8f',   // 등압선 (mute)
+  body:'#4d4d4d'
+};
+
+/* ---------- 화면 맞춤 ---------- */
+const stage = document.getElementById('stage');
+function fit(){
+  const s = Math.min(innerWidth/1920, innerHeight/1080);
+  stage.style.transform = `translate(-50%,-50%) scale(${s})`;
+}
+addEventListener('resize', fit); fit();
+
+/* ---------- SVG 도우미 ---------- */
+// 수학 좌표(위가 +y) 벡터를 화면 좌표로 바꿀 때는 y 부호만 바꾼다.
+function arrow(x1,y1,x2,y2,color,o={}){
+  const w=o.w||8, dash=!!o.dash;
+  const dx=x2-x1, dy=y2-y1, L=Math.hypot(dx,dy);
+  if(L<3) return '';
+  const h=Math.min(o.head||28, L*0.6), ux=dx/L, uy=dy/L;
+  const bx=x2-ux*h, by=y2-uy*h, hw=h*0.55, px=-uy, py=ux;
+  const op = o.op!=null ? ` opacity="${o.op}"` : '';
+  return `<g${op}><line x1="${x1}" y1="${y1}" x2="${bx}" y2="${by}" stroke="${color}" stroke-width="${w}" stroke-linecap="${dash?'butt':'round'}"${dash?' stroke-dasharray="14 10"':''}/>`+
+         `<polygon points="${x2},${y2} ${bx+px*hw},${by+py*hw} ${bx-px*hw},${by-py*hw}" fill="${color}"/></g>`;
+}
+function text(x,y,t,color,o={}){
+  const size=o.size||30, anchor=o.anchor||'middle', weight=o.weight||600;
+  return `<text x="${x}" y="${y}" font-size="${size}" font-weight="${weight}" fill="${color}" text-anchor="${anchor}" `+
+         `stroke="#ffffff" stroke-width="8" stroke-linejoin="round" paint-order="stroke" font-family="Geist, 'Noto Sans KR', 'Malgun Gothic', sans-serif">${t}</text>`;
+}
+// 화살표 끝 너머에 이름표
+function tipLabel(x1,y1,x2,y2,t,color,o={}){
+  const dx=x2-x1, dy=y2-y1, L=Math.hypot(dx,dy);
+  if(L<3) return '';
+  const ux=dx/L, uy=dy/L;
+  if(Math.abs(ux) >= Math.abs(uy)){
+    return text(x2+ux*14, y2+10, t, color, {anchor: ux>0?'start':'end', ...o});
+  }
+  return text(x2, uy>0 ? y2+38 : y2-16, t, color, o);
+}
+// 힘 화살표 + 이름표 (v: 화면 좌표 벡터)
+function force(x,y,v,color,name,o={}){
+  const x2=x+v[0], y2=y+v[1];
+  if(Math.hypot(v[0],v[1])<3) return '';
+  let lab;
+  if(o.mid) lab = text((x+x2)/2-10, (y+y2)/2+(o.mid==='below'?42:-22), name, color, o.lab||{});          // 화살표 가운데 위
+  else if(o.tailLeft) lab = text(x-14, y+10, name, color, {anchor:'end', ...(o.lab||{})});
+  else if(o.tail) lab = text(x+14, y+10, name, color, {anchor:'start', ...(o.lab||{})}); // 꼬리 오른쪽
+  else if(o.side) lab = text(x2+14, y2+10, name, color, {anchor:'start', ...(o.lab||{})});
+  else lab = tipLabel(x,y,x2,y2,name,color,o.lab||{});
+  return arrow(x,y,x2,y2,color,o) + lab;
+}
+function parcel(x,y){ return `<circle cx="${x}" cy="${y}" r="15" fill="#ffffff" stroke="${C.wind}" stroke-width="4"/>`; }
+const scr = v => [v[0], -v[1]];                 // 수학 → 화면
+const rperp = v => [v[1], -v[0]];               // 수학 좌표에서 오른쪽 직각 (북반구 전향력 방향)
+const add = (a,b) => [a[0]+b[0], a[1]+b[1]];
+const mul = (a,k) => [a[0]*k, a[1]*k];
+
+/* ---------- 힘의 평형 풀이 ----------
+   단위: 기압 경도력 P = 1, 전향 인자 f = 1, 곡률 반경 r (기본 4.5, 무차원)
+   마찰력 = k × 풍속 (바람 반대 방향), 전향력 = f × 풍속 (바람 오른쪽 직각)
+   직선: P = s·√(f²+k²)
+   저기압: P − s·√(f²+k²) = s²/r      (기압 경도력 − 전향력(·마찰) = 구심력)
+   고기압: s·√(f²+k²) − P = s²/r      (전향력 − 기압 경도력 = 구심력)          */
+function solve(kind, k, r=4.5){
+  const f=1, P=1, q=Math.hypot(f,k), a=f/q, b=k/q;
+  let s;
+  if(kind==='S') s = P/q;
+  else if(kind==='L') s = (-r*q + Math.sqrt(r*r*q*q + 4*P*r))/2;
+  else s = (r*q - Math.sqrt(r*r*q*q - 4*P*r))/2;
+  return {s,a,b,k,f,P};
+}
+// t: 흐름 방향 단위벡터, low: 저기압 쪽 단위벡터 (수학 좌표)
+function forces(kind, k, t, low, r){
+  const R = solve(kind,k,r);
+  const wd  = add(mul(t,R.a), mul(low,R.b));        // 바람 방향
+  const pgf = mul(low, R.P);
+  const cf  = mul(rperp(wd), R.f*R.s);
+  const fr  = mul(wd, -R.k*R.s);
+  const net = add(add(pgf,cf),fr);                    // 원형일 때 = 구심력
+  return {wd, s:R.s, pgf, cf, fr, net};
+}
+
+/* =========================================================
+   장면 1 : 지균풍
+   ========================================================= */
+const S1 = { playing:false, t:0, lat:45, formT:4.5, cruise:90, done:false };
+// 형성 과정의 길(교과서 그림 Ⅲ-28처럼 정지 → 휘어짐 → 나란히)
+(function(){
+  // 풍속 비율 e (0→1), 풍향 psi: 기압 경도력 방향(0) → 오른쪽 90°
+  const N=240; let x=0,y=0; const raw=[{x:0,y:0,e:0,psi:0}];
+  const Es=u=>(1-Math.exp(-3*u))/(1-Math.exp(-3)), Ep=u=>(1-Math.exp(-u))/(1-Math.exp(-1));
+  for(let i=1;i<=N;i++){
+    const e=Es(i/N), psi=Math.PI/2*Ep(i/N);
+    x+=e*Math.sin(psi)/N; y+=e*Math.cos(psi)/N; raw.push({x,y,e,psi});
+  }
+  const sc=250/y, x0=110, y0=500;
+  S1.path = raw.map(p=>({x:x0+p.x*sc, y:y0-p.y*sc, e:p.e, psi:p.psi}));
+})();
+const svg1=document.getElementById('svg1');
+function s1state(){
+  const fT=S1.formT, P=S1.path;
+  if(S1.t<=fT){
+    const u=S1.t/fT, i=Math.round(u*(P.length-1)), p=P[i];
+    return {x:p.x, y:p.y, e:p.e, psi:p.psi, u, idx:i};
+  }
+  const end=P[P.length-1];
+  const x=Math.min(end.x + S1.cruise*(S1.t-fT), end.x+90);
+  return {x, y:end.y, e:1, psi:Math.PI/2, u:1, idx:P.length-1, cruiseX:x};
+}
+function s1draw(){
+  const st=s1state(), e=st.e, psi=st.psi;
+  const ratio = Math.sin(Math.PI/4)/Math.sin(S1.lat*Math.PI/180);
+  let g='';
+  // 등압선
+  g+=`<line x1="40" x2="1096" y1="110" y2="110" stroke="${C.iso}" stroke-width="4"/>`;
+  g+=`<line x1="40" x2="1096" y1="590" y2="590" stroke="${C.iso}" stroke-width="4"/>`;
+  g+=text(1090,94,'800 hPa',C.iso,{anchor:'end',weight:500,size:28});
+  g+=text(1090,574,'804 hPa',C.iso,{anchor:'end',weight:500,size:28});
+  g+=text(60,96,'저기압',C.body,{anchor:'start',size:30});
+  g+=text(60,576,'고기압',C.body,{anchor:'start',size:30});
+  // 지나온 길
+  const pts=S1.path.slice(0,st.idx+1).map(p=>`${p.x},${p.y}`);
+  if(st.cruiseX) pts.push(`${st.cruiseX},${st.y}`);
+  if(pts.length>1) g+=`<polyline points="${pts.join(' ')}" fill="none" stroke="${C.ghost}" stroke-width="4" stroke-dasharray="2 10" stroke-linecap="round"/>`;
+  // 단계 번호
+  const NP=S1.path.length-1;
+  const mk=[[0,'1',-36,26],[Math.round(0.35*NP),'2',-30,34],[Math.round(0.8*NP),'3',4,44]];
+  mk.forEach(([i,n,ox,oy])=>{ if(st.idx>=i && (S1.playing||S1.t>0)){ const p=S1.path[i];
+    g+=`<circle cx="${p.x+ox}" cy="${p.y+oy}" r="20" fill="#171717"/>`+
+       `<text x="${p.x+ox}" y="${p.y+oy+9}" font-size="26" font-weight="600" fill="#fff" text-anchor="middle" font-family="Geist Mono, monospace">${n}</text>`; }});
+  if(S1.t>=S1.formT) g+=text(60, 170, '※ 휘어진 길 = 지균풍이 만들어지는 과정', C.body, {anchor:'start',size:26,weight:500});
+  // 힘과 바람
+  const x=st.x, y=st.y;
+  const vel=[Math.sin(psi), Math.cos(psi)];         // 수학 좌표 바람 방향
+  const FP=125;
+  g+=force(x,y,scr([0,FP]),C.pgf,'기압 경도력');
+  g+=force(x,y,scr(mul(rperp(vel),FP*e)),C.cf,'전향력');
+  if(e>0.02) g+=force(x,y,scr(mul(vel,120*e*ratio)),C.wind,(e>0.999?'지균풍':'바람'),{w:10});
+  g+=parcel(x,y);
+  if(S1.t===0) g+=text(x+30,y+10,'정지한 공기',C.body,{anchor:'start',size:28,weight:500});
+  svg1.innerHTML=g;
+  // 단계 표시
+  const li=[...document.querySelectorAll('#s1steps li')];
+  const step = (S1.t===0&&!S1.playing) ? 0 : (st.u<0.3?1: st.u<1?2:3);
+  li.forEach((l,i)=>{ l.className = (i+1===step)?'on':(i+1<step?'done':''); });
+}
+function s1readouts(){
+  const th=S1.lat*Math.PI/180, f=2*7.29e-5*Math.sin(th);
+  document.getElementById('s1latv').textContent = S1.lat+'°N';
+  document.getElementById('s1f').textContent = (f*1e4).toFixed(2)+' × 10⁻⁴ s⁻¹';
+  document.getElementById('s1r').textContent = (Math.sin(Math.PI/4)/Math.sin(th)).toFixed(2)+'배';
+}
+document.getElementById('s1play').onclick=()=>{
+  if(S1.t>=S1.formT+1) S1.t=0;
+  S1.playing=!S1.playing; s1btn();
+};
+document.getElementById('s1reset').onclick=()=>{ S1.t=0; S1.playing=false; s1btn(); s1draw(); };
+function s1btn(){ document.getElementById('s1play').textContent = S1.playing?'❚❚ 멈춤':'▶ 재생'; }
+S1.tick=dt=>{ if(!S1.playing) return; S1.t+=dt; if(S1.t>=S1.formT+1){S1.t=S1.formT+1;S1.playing=false;s1btn();} s1draw(); };
+const lat=document.getElementById('s1lat');
+lat.oninput=()=>{ S1.lat=+lat.value; s1readouts(); s1draw(); };
+
+/* =========================================================
+   장면 2 : 경도풍
+   ========================================================= */
+const S2 = { kind:'L', phase:0, t:0, playing:false, formT:4.5, cruiseT:0.6 };
+const svg2=document.getElementById('svg2');
+// 형성 과정의 모양은 장면 1과 같은 규칙(정지 → 휘어짐 → 등압선과 나란히)
+(function(){
+  const N=240; let x=0,y=0; const raw=[{x:0,y:0,e:0,psi:0}];
+  const Es=u=>(1-Math.exp(-3*u))/(1-Math.exp(-3)), Ep=u=>(1-Math.exp(-u))/(1-Math.exp(-1));
+  for(let i=1;i<=N;i++){
+    const e=Es(i/N), psi=Math.PI/2*Ep(i/N);
+    x+=e*Math.sin(psi)/N; y+=e*Math.cos(psi)/N; raw.push({x,y,e,psi});
+  }
+  S2.path = raw.map(p=>({x:p.x/y, y:p.y/y, e:p.e, psi:p.psi}));   // 저기압 쪽 이동 거리 = 1
+})();
+const S2G = { cx:470, cy:320, R:[100,190,280], D:90, cruise:0 };
+// 진행 정도 → 위치·방향
+function s2at(K, i, cruiseFrac){
+  const {cx,cy,D}=S2G, Rend = K==='L'?190:280, sg = K==='L'?1:-1;  // 저기압: 시계 반대(+), 고기압: 시계(−)
+  const P=S2.path, last=P[P.length-1], phiEnd=-sg*S2G.cruise;
+  let r, phi, e, psi;
+  if(cruiseFrac==null){
+    const p=P[i], along=(p.x-last.x)*D, off=(last.y-p.y)*D;
+    r = K==='L' ? Rend+off : Rend-off;                    // 저기압: 바깥 등압선에서 안으로, 고기압: 안에서 밖으로
+    phi = phiEnd + sg*along/Rend; e=p.e; psi=p.psi;
+  } else {
+    r=Rend; phi=phiEnd + sg*S2G.cruise*cruiseFrac; e=1; psi=Math.PI/2;
+  }
+  const t   = K==='L' ? [-Math.sin(phi),Math.cos(phi)] : [Math.sin(phi),-Math.cos(phi)];
+  const low = K==='L' ? [-Math.cos(phi),-Math.sin(phi)] : [Math.cos(phi),Math.sin(phi)];
+  return { x:cx+r*Math.cos(phi), y:cy-r*Math.sin(phi), t, low, e, psi };
+}
+function s2state(){
+  const N=S2.path.length-1;
+  if(S2.t<=S2.formT){ const u=S2.t/S2.formT, i=Math.round(u*N); return {u, i, st:s2at(S2.kind,i,null)}; }
+  const f=Math.min(1,(S2.t-S2.formT)/S2.cruiseT);
+  return {u:1, i:N, f, st:s2at(S2.kind,N,f)};
+}
+function s2draw(){
+  const {cx,cy,R}=S2G, K=S2.kind, RR=(K==='L'?2:4.5), FS=140;
+  const labs = K==='L' ? ['850','852','854'] : ['854','852','850'];
+  const S=s2state(), st=S.st, started=(S2.playing||S2.t>0), done=(S2.t>=S2.formT+S2.cruiseT);
+  let g='';
+  R.forEach(r=>{ g+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${C.iso}" stroke-width="4"/>`; });
+  R.forEach((r,i)=>{ g+=text(cx-r*0.7-6, cy-r*0.7-8, labs[i]+(i===2?' hPa':''), C.iso, {size:24,weight:500,anchor:'end'}); });
+  g+=text(cx, cy+18, K, K==='L'?'#ee0000':C.pgf, {size:52});
+  g+=text(cx, cy-36, K==='L'?'저기압':'고기압', C.body, {size:26,weight:500});
+  // 다 만들어진 뒤: 등압선을 따라 도는 흐름
+  if(done){
+    const Rend = K==='L'?190:280;
+    for(let j=0;j<6;j++){
+      let p=S2.phase + j*Math.PI/3; p=((p%(2*Math.PI))+2*Math.PI)%(2*Math.PI);
+      if(p<0.6 || p>2*Math.PI-0.6) continue;
+      const px=cx+Rend*Math.cos(p), py=cy-Rend*Math.sin(p);
+      const t = K==='L' ? [-Math.sin(p),Math.cos(p)] : [Math.sin(p),-Math.cos(p)];
+      const a=scr(mul(t,30)), b=scr(mul(t,-30));
+      g+=arrow(px+b[0],py+b[1],px+a[0],py+a[1],C.body,{w:5,head:20});
+    }
+  }
+  // 지나온 길
+  if(started){
+    const pts=[];
+    for(let i=0;i<=S.i;i+=3){ const q=s2at(K,i,null); pts.push(q.x+','+q.y); }
+    if(S.f!=null){ for(let k=0;k<=10;k++){ const q=s2at(K,0,S.f*k/10); pts.push(q.x+','+q.y); } }
+    else { pts.push(st.x+','+st.y); }
+    g+=`<polyline points="${pts.join(' ')}" fill="none" stroke="${C.ghost}" stroke-width="4" stroke-dasharray="2 10" stroke-linecap="round"/>`;
+    const N=S2.path.length-1;
+    [[0,'1'],[Math.round(0.5*N),'2']].forEach(([i,n])=>{
+      if(S.i>=i && S2.t<S2.formT){ const q=s2at(K,i,null), m=[q.x-q.low[0]*40, q.y+q.low[1]*40];   // 저기압 반대쪽에 번호
+        g+=`<circle cx="${m[0]}" cy="${m[1]}" r="20" fill="#171717"/>`+
+           `<text x="${m[0]}" y="${m[1]+9}" font-size="26" font-weight="600" fill="#fff" text-anchor="middle" font-family="Geist Mono, monospace">${n}</text>`; }
+    });
+  }
+  // 힘과 바람
+  const sF = solve(K,0,RR).s, x=st.x, y=st.y;
+  const vel = add(mul(st.low,Math.cos(st.psi)), mul(st.t,Math.sin(st.psi)));   // 저기압 쪽 → 오른쪽 90°로 돌아감
+  const atEnd = done;
+  g+=force(x,y,scr(mul(st.low,FS)),C.pgf,'기압 경도력',{mid:(atEnd&&K==='L')?'below':false});
+  g+=force(x,y,scr(mul(rperp(vel),FS*sF*st.e)),C.cf,'전향력',{mid:atEnd&&K==='H'});
+  if(st.e>0.02) g+=force(x,y,scr(mul(vel,120*sF*st.e)),C.wind,(st.e>0.999?'경도풍':'바람'),{w:10});
+  if(S2.t>=S2.formT){
+    const F=forces(K,0,st.t,st.low,RR), o=scr(mul(st.t,-150));
+    g+=force(x+o[0],y+o[1],scr(mul(F.net,FS)),C.cp,'구심력 (합력)',{dash:true,w:6,head:18,tail:true});
+  }
+  g+=parcel(x,y);
+  if(!started) g+=text(x+28,y+44,'정지한 공기',C.body,{anchor:'start',size:28,weight:500});
+  svg2.innerHTML=g;
+  const step = !started ? 0 : (S.u<0.3?1: S.u<1?2:3);
+  [...document.querySelectorAll('#s2steps li')].forEach((l,i)=>{ l.className=(i+1===step)?'on':(i+1<step?'done':''); });
+}
+function s2btn(){ document.getElementById('s2play').textContent = S2.playing?'❚❚ 멈춤':'▶ 재생'; }
+document.getElementById('s2play').onclick=()=>{
+  if(S2.t>=S2.formT+S2.cruiseT) S2.t=0;
+  S2.playing=!S2.playing; s2btn();
+};
+document.getElementById('s2reset').onclick=()=>{ S2.t=0; S2.playing=false; s2btn(); s2draw(); };
+S2.tick=dt=>{
+  if(S2.playing){ S2.t+=dt; if(S2.t>=S2.formT+S2.cruiseT){ S2.t=S2.formT+S2.cruiseT; S2.playing=false; s2btn(); } }
+  if(S2.t>=S2.formT+S2.cruiseT){ const sp=solve(S2.kind,0,S2.kind==='L'?2:4.5).s; S2.phase += (S2.kind==='L'?1:-1)*0.25*sp*dt; }
+  s2draw();
+};
+document.querySelectorAll('#s2 .seg .btn').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#s2 .seg .btn').forEach(x=>x.classList.toggle('on',x===b));
+  S2.kind=b.dataset.k; S2.t=0; S2.playing=false; s2btn();
+  const L=S2.kind==='L';
+  document.getElementById('s2dir').innerHTML = '북반구: <b>'+(L?'시계 반대 방향':'시계 방향')+'</b>';
+  document.getElementById('s2eq').innerHTML  = (L?'기압 경도력 − 전향력':'전향력 − 기압 경도력')+' = <b style="color:var(--magenta)">구심력</b>';
+  document.getElementById('s2st1').textContent = L?'기압 경도력으로 중심 쪽으로 출발':'기압 경도력으로 바깥쪽으로 출발';
+  s2draw();
+});
+
+/* =========================================================
+   장면 3 : 같은 기압 경도력일 때 풍속 비교
+   세 경우 모두 기압 경도력이 위쪽(북쪽), 바람이 오른쪽(동쪽)이 되도록 배치
+   저기압: 중심이 위, 공기는 원의 남쪽 / 고기압: 중심이 아래, 공기는 원의 북쪽
+   ========================================================= */
+const SC={show:false};
+const svgC=document.getElementById('svgC');
+function sCdraw(){
+  const CW=445, PY=380, FS=100, VW=150, R=200;
+  const cols=[
+    {k:'L', title:'저기압성 경도풍'},
+    {k:'S', title:'지균풍'},
+    {k:'H', title:'고기압성 경도풍'}
+  ];
+  let g='<defs>'+cols.map((c,i)=>`<clipPath id="cc${i}"><rect x="${i*CW}" y="92" width="${CW}" height="534"/></clipPath>`).join('')+'</defs>';
+  cols.forEach((c,i)=>{
+    const ox=i*CW, x=ox+175, y=PY;
+    if(i>0) g+=`<line x1="${ox}" x2="${ox}" y1="24" y2="616" stroke="#ebebeb" stroke-width="2"/>`;
+    let iso='';
+    if(c.k==='S'){
+      iso+=`<line x1="${ox+30}" x2="${ox+CW-30}" y1="${PY-R}" y2="${PY-R}" stroke="${C.iso}" stroke-width="4"/>`;
+      iso+=`<line x1="${ox+30}" x2="${ox+CW-30}" y1="${PY+R-30}" y2="${PY+R-30}" stroke="${C.iso}" stroke-width="4"/>`;
+      iso+=text(ox+CW-40,PY-R+40,'저기압',C.body,{anchor:'end',size:26,weight:500});
+      iso+=text(ox+CW-40,PY+R-46,'고기압',C.body,{anchor:'end',size:26,weight:500});
+    } else {
+      const cy = c.k==='L' ? PY-R : PY+R;
+      iso+=`<circle cx="${x}" cy="${cy}" r="${R}" fill="none" stroke="${C.iso}" stroke-width="4"/>`;
+      iso+=`<circle cx="${x}" cy="${cy}" r="5" fill="${C.iso}"/>`;
+      iso+=text(x+70, cy+18, c.k, c.k==='L'?'#ee0000':C.pgf, {size:52});
+    }
+    g+=`<g clip-path="url(#cc${i})">${iso}</g>`;
+    g+=text(ox+CW/2, 58, c.title, C.wind, {size:32});
+    const t=[1,0], low=[0,1];
+    const F=forces(c.k,0,t,low,c.k==='L'?2:4.5);   // 장면 2와 같은 조건
+    g+=force(x,y,scr(mul(F.pgf,FS)),C.pgf,'기압 경도력');
+    g+=force(x,y,scr(mul(F.cf,FS)),C.cf,'전향력',{side:true});
+    if(c.k!=='S'){
+      const o=[-60,0];
+      g+=force(x+o[0],y+o[1],scr(mul(F.net,FS)),C.cp,'구심력',{dash:true,w:6,head:18,tailLeft:true,lab:{size:26}});
+    }
+    if(SC.show){
+      g+=force(x,y,scr(mul(F.wd,F.s*VW)),C.wind,'',{w:10});
+      g+=`<line x1="${x+F.s*VW}" x2="${x+F.s*VW}" y1="${y-40}" y2="${y+40}" stroke="${C.wind}" stroke-width="2" stroke-dasharray="4 6"/>`;
+    }
+    g+=parcel(x,y);
+  });
+  svgC.innerHTML=g;
+}
+document.getElementById('sCshow').onclick=()=>{
+  SC.show=!SC.show;
+  document.getElementById('sCshow').textContent = SC.show?'바람 숨기기':'바람 보기';
+  ['sCv'].forEach(id=>document.getElementById(id).style.visibility = SC.show?'visible':'hidden');
+  sCdraw();
+};
+
+/* =========================================================
+   장면 4 : 지상풍
+   ========================================================= */
+const svg3=document.getElementById('svg3'), kIn=document.getElementById('s3k');
+function s3draw(){
+  const k=+kIn.value, al=Math.atan(k), x=430, y=345, FP=170, VW=300;
+  let g='';
+  g+=`<line x1="40" x2="1096" y1="100" y2="100" stroke="${C.iso}" stroke-width="4"/>`;
+  g+=`<line x1="40" x2="1096" y1="595" y2="595" stroke="${C.iso}" stroke-width="4"/>`;
+  g+=text(1090,84,'1000 hPa',C.iso,{anchor:'end',weight:500,size:28});
+  g+=text(1090,579,'1004 hPa',C.iso,{anchor:'end',weight:500,size:28});
+  g+=text(60,86,'저기압',C.body,{anchor:'start',size:30});
+  g+=text(60,581,'고기압',C.body,{anchor:'start',size:30});
+  const F=forces('S',k,[1,0],[0,1]);
+  // 마찰이 없을 때 (지균풍) 비교선
+  if(k>0.02){
+    g+=arrow(x,y,x+VW,y,C.ghost,{w:5,dash:true,head:22});
+    g+=text(x+VW+12,y+36,'지균풍(마찰 0)',C.ghost,{anchor:'start',size:26,weight:500});
+  }
+  // 합력 평행사변형 보조선
+  const cfE=scr(mul(F.cf,FP)), frE=scr(mul(F.fr,FP)), sum=[cfE[0]+frE[0], cfE[1]+frE[1]];
+  if(k>0.02){
+    g+=`<line x1="${x+cfE[0]}" y1="${y+cfE[1]}" x2="${x+sum[0]}" y2="${y+sum[1]}" stroke="${C.ghost}" stroke-width="3" stroke-dasharray="6 8"/>`;
+    g+=`<line x1="${x+frE[0]}" y1="${y+frE[1]}" x2="${x+sum[0]}" y2="${y+sum[1]}" stroke="${C.ghost}" stroke-width="3" stroke-dasharray="6 8"/>`;
+    g+=arrow(x,y,x+sum[0],y+sum[1],C.ghost,{w:5,dash:true,head:22});
+    g+=text(x+sum[0],y+sum[1]+38,'전향력 + 마찰력의 합력',C.body,{size:24,weight:500});
+  }
+  g+=force(x,y,scr(mul(F.pgf,FP)),C.pgf,'기압 경도력');
+  g+=force(x,y,cfE,C.cf,'전향력',{side:true});
+  g+=force(x,y,frE,C.fr,'마찰력');
+  const w=scr(mul(F.wd,F.s*VW));
+  g+=force(x,y,w,C.wind,k>0.02?'지상풍':'지균풍',{w:10});
+  // 경각 α
+  if(k>0.02){
+    const r=110;
+    g+=`<path d="M ${x+r} ${y} A ${r} ${r} 0 0 0 ${x+r*Math.cos(al)} ${y-r*Math.sin(al)}" fill="none" stroke="${C.wind}" stroke-width="3"/>`;
+    g+=text(x+r+16, y-r*Math.sin(al/2)+4, 'α', C.wind, {anchor:'start',size:32});
+  }
+  g+=parcel(x,y);
+  svg3.innerHTML=g;
+  document.getElementById('s3a').textContent = Math.round(al*180/Math.PI)+'°';
+}
+kIn.oninput=s3draw;
+
+/* =========================================================
+   장면 5 : 골라 보기
+   ========================================================= */
+const S4={layer:'U', shape:'S', pick:new Set(), state:'none'};
+const svg4=document.getElementById('svg4');
+const KS=0.577; // 지상 마찰 (경각 약 30°)
+function s4answer(){ return S4.layer==='U' ? ['pgf','cf'] : ['pgf','cf','fr']; }
+function s4name(){
+  if(S4.layer==='U') return S4.shape==='S'?'지균풍':(S4.shape==='L'?'저기압성 경도풍':'고기압성 경도풍');
+  return S4.shape==='S'?'지상풍':(S4.shape==='L'?'지상풍 — 저기압으로 불어 들어감':'지상풍 — 고기압에서 불어 나감');
+}
+function s4draw(){
+  const U=S4.layer==='U', K=S4.shape, k=U?0:KS, show=(S4.state==='right'||S4.state==='reveal');
+  let g='';
+  let x,y,t,low;
+  if(K==='S'){
+    g+=`<line x1="40" x2="1016" y1="100" y2="100" stroke="${C.iso}" stroke-width="4"/>`;
+    g+=`<line x1="40" x2="1016" y1="580" y2="580" stroke="${C.iso}" stroke-width="4"/>`;
+    g+=text(1010,84,U?'800 hPa':'1000 hPa',C.iso,{anchor:'end',weight:500,size:28});
+    g+=text(1010,564,U?'804 hPa':'1004 hPa',C.iso,{anchor:'end',weight:500,size:28});
+    g+=text(60,86,'저기압',C.body,{anchor:'start',size:30});
+    g+=text(60,566,'고기압',C.body,{anchor:'start',size:30});
+    x=420; y=340; t=[1,0]; low=[0,1];
+  } else {
+    const cx=440, cy=330, R=[80,220,290];
+    const labs = U ? (K==='L'?['850','852','854']:['854','852','850'])
+                   : (K==='L'?['996','1000','1004']:['1024','1020','1016']);
+    R.forEach((r,i)=>{ g+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${C.iso}" stroke-width="4"/>`; });
+    g+=text(cx-R[0]*0.72-4, cy-R[0]*0.72-6, labs[0], C.iso, {size:24,weight:500,anchor:'end'});
+    g+=text(cx-R[2]*0.72-4, cy-R[2]*0.72-6, labs[2]+' hPa', C.iso, {size:24,weight:500,anchor:'end'});
+    g+=text(cx, cy+18, K, K==='L'?'#ee0000':C.pgf, {size:52});
+    x=cx+R[1]; y=cy;
+    t   = K==='L' ? [0,1] : [0,-1];
+    low = K==='L' ? [-1,0] : [1,0];
+    if(show){
+      for(let j=1;j<4;j++){
+        const p=j*Math.PI/2, px=cx+R[1]*Math.cos(p), py=cy-R[1]*Math.sin(p);
+        const tt = K==='L' ? [-Math.sin(p),Math.cos(p)] : [Math.sin(p),-Math.cos(p)];
+        const ll = K==='L' ? [-Math.cos(p),-Math.sin(p)] : [Math.cos(p),Math.sin(p)];
+        const Fj=forces(K,k,tt,ll), a=scr(mul(Fj.wd,44)), b=scr(mul(Fj.wd,-44));
+        g+=arrow(px+b[0],py+b[1],px+a[0],py+a[1],C.ghost,{w:6,head:22});
+      }
+    }
+  }
+  if(show){
+    const F=forces(K,k,t,low), FS=(K==='H'?115:160);  // 고기압은 전향력이 커서 화면에 맞게 줄임
+    g+=force(x,y,scr(mul(F.pgf,FS)),C.pgf,'기압 경도력',{mid:K==='L'?'below':false});
+    g+=force(x,y,scr(mul(F.cf,FS)),C.cf,'전향력',{mid:K==='H'&&U});
+    if(!U) g+=force(x,y,scr(mul(F.fr,FS)),C.fr,'마찰력');
+    g+=force(x,y,scr(mul(F.wd,F.s*130)),C.wind,'바람',{w:10});
+    if(K!=='S'){
+      const o=scr(mul(t,-150));
+      g+=force(x+o[0],y+o[1],scr(mul(F.net,FS)),C.cp,'구심력 (합력)',{dash:true,w:6,head:18,tail:true});
+    }
+    g+=`<rect x="24" y="${K==='S'?120:20}" width="${s4name().length*30+48}" height="60" rx="12" fill="#ffffff" stroke="${C.wind}" stroke-width="2"/>`;
+    g+=text(48, (K==='S'?120:20)+41, s4name(), C.wind, {anchor:'start',size:32});
+  } else {
+    g+=text(x+34, y-24, '?', C.wind, {anchor:'start',size:56});
+  }
+  g+=parcel(x,y);
+  svg4.innerHTML=g;
+}
+function s4reset(){ S4.state='none'; document.getElementById('s4msg').textContent=''; document.getElementById('s4msg').className='msg';
+  document.getElementById('s4reveal').style.display='none'; s4draw(); }
+function segBind(id,key){
+  document.querySelectorAll('#'+id+' .btn').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('#'+id+' .btn').forEach(x=>x.classList.toggle('on',x===b));
+    S4[key]=b.dataset.v; s4reset();
+  });
+}
+segBind('s4layer','layer'); segBind('s4shape','shape');
+const fcol={pgf:'#0070f3',cf:'#7928ca',fr:'#ab570a'}, fsoft={pgf:'#d3e5ff',cf:'#d8ccf1',fr:'#ffefcf'};
+document.querySelectorAll('#s4forces .btn').forEach(b=>b.onclick=()=>{
+  const v=b.dataset.v;
+  if(S4.pick.has(v)) S4.pick.delete(v); else S4.pick.add(v);
+  const on=S4.pick.has(v);
+  b.classList.toggle('on',on);
+  b.style.borderColor = on?fcol[v]:''; b.style.background = on?fsoft[v]:'';
+  if(S4.state!=='none') s4reset();
+});
+document.getElementById('s4check').onclick=()=>{
+  const ans=s4answer(), ok = ans.length===S4.pick.size && ans.every(a=>S4.pick.has(a));
+  const m=document.getElementById('s4msg');
+  if(ok){
+    S4.state='right'; m.className='msg ok';
+    m.textContent = S4.shape==='S' ? '맞아요! → '+s4name().split(' —')[0] : '맞아요! 휘어진 등압선에서는 합력이 구심력';
+    document.getElementById('s4reveal').style.display='none';
+  } else {
+    S4.state='wrong'; m.className='msg no'; m.textContent='다시 골라 보세요 (높이를 생각해요)';
+    document.getElementById('s4reveal').style.display='';
+  }
+  s4draw();
+};
+document.getElementById('s4reveal').onclick=()=>{
+  S4.state='reveal';
+  const m=document.getElementById('s4msg'); m.className='msg ok';
+  m.textContent='정답: '+(S4.layer==='U'?'기압 경도력 · 전향력':'기압 경도력 · 전향력 · 마찰력');
+  document.getElementById('s4reveal').style.display='none';
+  s4draw();
+};
+
+/* ---------- 넘기기 ---------- */
+const scenes=[...document.querySelectorAll('.scene')];
+let cur=0;
+function go(i){
+  i=Math.max(0,Math.min(scenes.length-1,i));
+  scenes[cur].classList.remove('on'); cur=i; scenes[cur].classList.add('on');
+  document.getElementById('page').textContent=(cur+1)+' / '+scenes.length;
+  if(cur!==0){ S1.playing=false; s1btn(); }
+  if(cur!==1){ S2.playing=false; s2btn(); }
+}
+document.getElementById('prev').onclick=()=>go(cur-1);
+document.getElementById('next').onclick=()=>go(cur+1);
+addEventListener('keydown',e=>{
+  const ae=document.activeElement;
+  if(ae && ae.type==='range' && (e.key==='ArrowLeft'||e.key==='ArrowRight')) return;
+  if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'){ e.preventDefault(); go(cur+1); }
+  else if(e.key==='ArrowLeft'||e.key==='PageUp'){ e.preventDefault(); go(cur-1); }
+  else if(e.key==='f'||e.key==='F'){
+    if(!document.fullscreenElement) document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();
+    else document.exitFullscreen&&document.exitFullscreen();
+  }
+});
+// 슬라이더·단추를 쓴 뒤에도 방향키가 장면 넘기기로 돌아오게
+document.querySelectorAll('input[type=range]').forEach(r=>{ r.addEventListener('change',()=>r.blur()); r.addEventListener('pointerup',()=>r.blur()); });
+document.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>b.blur()));
+
+/* ---------- 움직임 ---------- */
+let last=performance.now();
+function loop(now){
+  const dt=Math.min(0.05,(now-last)/1000); last=now;
+  if(cur===0) S1.tick(dt);
+  if(cur===1) S2.tick(dt);
+  requestAnimationFrame(loop);
+}
+s1readouts(); s1draw(); s2draw(); sCdraw(); s3draw(); s4draw();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
